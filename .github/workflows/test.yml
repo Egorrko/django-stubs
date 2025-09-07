@@ -48,8 +48,31 @@ jobs:
         run: uv run mypy --cache-dir=/dev/null --no-incremental django-stubs
       - name: Run mypy on the test cases
         run: uv run mypy --strict tests
+  
+  prepare-apt-cache:
+    runs-on: ubuntu-latest
+    outputs:
+      week_number: ${{ steps.week.outputs.week_number }}
+    steps:
+      - name: Get week number
+        id: week
+        run: echo "week_number=$(date -u +'%Y-%U')" >> $GITHUB_OUTPUT
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-cache-${{ steps.week.outputs.week_number }}
+          restore-keys: |
+            ${{ runner.os }}-apt-cache-
+
+      - name: Install dependencies to populate cache
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils libproj-dev gdal-bin
 
   test:
+    needs: prepare-apt-cache
     timeout-minutes: 15
     runs-on: ubuntu-latest
     strategy:
@@ -59,6 +82,13 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v5
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-cache-${{ needs.prepare-apt-cache.outputs.week_number }}
+          restore-keys: |
+            ${{ runner.os }}-apt-cache-
       - name: Setup system dependencies
         run: |
           sudo apt-get update
@@ -79,6 +109,7 @@ jobs:
 
 
   stubtest:
+    needs: prepare-apt-cache
     timeout-minutes: 10
     runs-on: ubuntu-latest
     strategy:
@@ -87,6 +118,13 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v5
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-cache-${{ needs.prepare-apt-cache.outputs.week_number }}
+          restore-keys: |
+            ${{ runner.os }}-apt-cache-
       - name: Setup system dependencies
         run: |
           sudo apt-get update
@@ -105,6 +143,7 @@ jobs:
         run: uv run ./scripts/stubtest.sh
 
   run-pyright:
+    needs: prepare-apt-cache
     timeout-minutes: 10
     runs-on: ubuntu-latest
     strategy:
@@ -149,6 +188,13 @@ jobs:
         django-version: ['5.0', '5.1', '5.2']
     steps:
       - uses: actions/checkout@v5
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-cache-${{ needs.prepare-apt-cache.outputs.week_number }}
+          restore-keys: |
+            ${{ runner.os }}-apt-cache-
       - name: Setup system dependencies
         run: |
           sudo apt-get update
